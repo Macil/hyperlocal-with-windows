@@ -27,14 +27,19 @@
 //! - Server- enables the server extension trait. *Enabled by default*.
 
 #[cfg(feature = "client")]
+#[cfg_attr(windows, path = "client_windows.rs")]
 mod client;
 #[cfg(feature = "client")]
 pub use client::{UnixClientExt, UnixConnector};
 
 #[cfg(feature = "server")]
+#[cfg_attr(windows, path = "server_windows.rs")]
 mod server;
 #[cfg(feature = "server")]
 pub use server::UnixServerExt;
+
+#[cfg(all(windows, any(feature = "client", feature = "server")))]
+mod windows;
 
 mod uri;
 pub use uri::Uri;

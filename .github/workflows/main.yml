@@ -73,7 +73,7 @@ jobs:
     needs: [codestyle, lint, compile]
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
         rust: [stable]
     runs-on: ${{ matrix.os }}
 

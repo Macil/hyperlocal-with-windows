@@ -6,7 +6,7 @@
 )]
 #![warn(clippy::all, clippy::pedantic)]
 
-//! `hyperlocal` provides [Hyper](http://github.com/hyperium/hyper) bindings
+//! `hyperlocal-with-windows` provides [Hyper](http://github.com/hyperium/hyper) bindings
 //! for [Unix domain sockets](https://github.com/tokio-rs/tokio/tree/master/tokio-net/src/uds/).
 //!
 //! See the [`UnixClientExt`] docs for

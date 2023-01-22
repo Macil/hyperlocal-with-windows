@@ -96,7 +96,7 @@ pub(crate) mod conn {
 ///
 /// ```rust
 /// use hyper::{Server, Body, Response, service::{make_service_fn, service_fn}};
-/// use hyperlocal::UnixServerExt;
+/// use hyperlocal_with_windows::UnixServerExt;
 ///
 /// # async {
 /// let make_service = make_service_fn(|_| async {

@@ -63,7 +63,7 @@ impl tokio::io::AsyncRead for UnixStream {
 /// # Example
 /// ```
 /// use hyper::{Client, Body};
-/// use hyperlocal::UnixConnector;
+/// use hyperlocal_with_windows::UnixConnector;
 ///
 /// let connector = UnixConnector;
 /// let client: Client<UnixConnector, Body> = Client::builder().build(connector);
@@ -137,7 +137,7 @@ pub trait UnixClientExt {
     /// # Example
     /// ```
     /// use hyper::Client;
-    /// use hyperlocal::UnixClientExt;
+    /// use hyperlocal_with_windows::UnixClientExt;
     ///
     /// let client = Client::unix();
     /// ```

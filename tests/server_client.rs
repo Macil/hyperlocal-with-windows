@@ -5,7 +5,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Client, Response, Server,
 };
-use hyperlocal::{UnixClientExt, UnixServerExt, Uri};
+use hyperlocal_with_windows::{UnixClientExt, UnixServerExt, Uri};
 
 #[tokio::test]
 async fn test_server_client() -> Result<(), Box<dyn Error + Send + Sync>> {

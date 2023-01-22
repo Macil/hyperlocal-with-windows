@@ -1,5 +1,5 @@
 use hyper::{body::HttpBody, Client};
-use hyperlocal::{UnixClientExt, Uri};
+use hyperlocal_with_windows::{UnixClientExt, Uri};
 use std::error::Error;
 use tokio::io::{self, AsyncWriteExt as _};
 

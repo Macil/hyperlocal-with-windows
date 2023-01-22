@@ -3,24 +3,24 @@
 </div>
 
 <h1 align="center">
-  hyperlocal
+  hyperlocal-with-windows
 </h1>
 
 <p align="center">
-   <a href="https://github.com/hyperium/hyper">Hyper</a> client and server bindings for <a href="https://github.com/tokio-rs/tokio/tree/master/tokio-net/src/uds/">Unix domain sockets</a>
+   <a href="https://github.com/hyperium/hyper">Hyper</a> client and server bindings for <a href="https://github.com/tokio-rs/tokio/tree/master/tokio-net/src/uds/">Unix domain sockets</a>, with Windows support
 </p>
 
 <div align="center">
-  <a alt="GitHub Actions" href="https://github.com/softprops/hyperlocal/actions">
-    <img src="https://github.com/softprops/hyperlocal/workflows/Main/badge.svg"/>
+  <a alt="GitHub Actions" href="https://github.com/Macil/hyperlocal-with-windows/actions">
+    <img src="https://github.com/Macil/hyperlocal-with-windows/workflows/Main/badge.svg"/>
   </a>
-  <a alt="crates.io" href="https://crates.io/crates/hyperlocal">
-    <img src="https://img.shields.io/crates/v/hyperlocal.svg?logo=rust"/>
+  <a alt="crates.io" href="https://crates.io/crates/hyperlocal-with-windows">
+    <img src="https://img.shields.io/crates/v/hyperlocal-with-windows.svg?logo=rust"/>
   </a>
-  <a alt="docs.rs" href="http://docs.rs/hyperlocal">
-    <img src="https://docs.rs/hyperlocal/badge.svg"/>
+  <a alt="docs.rs" href="http://docs.rs/hyperlocal-with-windows">
+    <img src="https://docs.rs/hyperlocal-with-windows/badge.svg"/>
   </a>
-  <a alt="latest docs" href="https://softprops.github.io/hyperlocal">
+  <a alt="latest docs" href="https://macil.github.io/hyperlocal-with-windows">
    <img src="https://img.shields.io/badge/docs-latest-green.svg"/>
   </a>
   <a alt="license" href="LICENSE">
@@ -32,7 +32,7 @@
 
 Hyper is a rock solid [Rust](https://www.rust-lang.org/) HTTP client and server toolkit.
 [Unix domain sockets](https://en.wikipedia.org/wiki/Unix_domain_socket) provide a mechanism
-for host-local interprocess communication. `hyperlocal` builds on and complements Hyper's
+for host-local interprocess communication. `hyperlocal-with-windows` builds on and complements Hyper's
 interfaces for building Unix domain socket HTTP clients and servers.
 
 This is useful for exposing simple HTTP interfaces for your Unix daemons in cases where you
@@ -40,6 +40,7 @@ want to limit access to the current host, in which case, opening and exposing tc
 not needed. Examples of Unix daemons that provide this kind of host local interface include
 [Docker](https://docs.docker.com/engine/misc/), a process container manager.
 
+This library is a fork of [hyperlocal](https://github.com/softprops/hyperlocal) with Windows support added. This project is not Windows-specific; it is cross-platform. The Windows support has a limitation: when acting as a server and listening on a Unix socket, the underlying socket may remain open until the program exits even if the server is shut down. This is not expected to be a problem for usual programs that listen on a Unix socket until the program exits, but this may be a problem for other use cases. This library will be discontinued once Windows support [is added upstream into hyperlocal](https://github.com/softprops/hyperlocal/issues/21).
 
 ## Installation
 
@@ -47,14 +48,14 @@ Add the following to your `Cargo.toml` file
 
 ```toml
 [dependencies]
-hyperlocal = "0.8"
+hyperlocal-with-windows = "0.8"
 ```
 
 ## Usage
 
 ### Servers
 
-A typical server can be built with `hyperlocal::server::UnixServerExt`.
+A typical server can be built with `hyperlocal_with_windows::server::UnixServerExt`.
 
 ```rust
 use std::{error::Error, fs, path::Path};
@@ -62,7 +63,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Response, Server,
 };
-use hyperlocal::UnixServerExt;
+use hyperlocal_with_windows::UnixServerExt;
 
 const PHRASE: &str = "It's a Unix system. I know this.";
 
@@ -98,7 +99,7 @@ It's a Unix system. I know this.
 
 ### Clients
 
-`hyperlocal` also provides bindings for writing unix domain socket based HTTP clients using `Hyper`'s native `Client` interface.
+`hyperlocal-with-windows` also provides bindings for writing unix domain socket based HTTP clients using `Hyper`'s native `Client` interface.
 
 Configure your `Hyper` client using `hyper::Client::builder()`.
 
@@ -106,13 +107,13 @@ Hyper's client interface makes it easy to send typical HTTP methods like `GET`, 
 methods, `get`, `post`, `delete`, etc. These require an argument that can be tranformed into a `hyper::Uri`.
 
 Since Unix domain sockets aren't represented with hostnames that resolve to ip addresses coupled with network ports,
-your standard over the counter URL string won't do. Instead, use a `hyperlocal::Uri`, which represents both file path to the domain
+your standard over the counter URL string won't do. Instead, use a `hyperlocal_with_windows::Uri`, which represents both file path to the domain
 socket and the resource URI path and query string.
 
 ```rust
 use std::error::Error;
 use hyper::{body::HttpBody, Client};
-use hyperlocal::{UnixClientExt, Uri};
+use hyperlocal_with_windows::{UnixClientExt, Uri};
 use tokio::io::{self, AsyncWriteExt as _};
 
 #[tokio::main]

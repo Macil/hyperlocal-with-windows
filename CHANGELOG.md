@@ -1,3 +1,7 @@
+# 0.8.2
+
+* Added `hyperlocal_with_windows::remove_unix_socket_if_present` helper function which correctly handles detecting and removing a unix socket on all platforms including Windows.
+
 # 0.8.1
 
 * Enable the "client" and "server" features by default as documented.

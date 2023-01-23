@@ -1,3 +1,7 @@
+# 0.8.1
+
+* Enable the "client" and "server" features by default as documented.
+
 # 0.8.0
 
 * Initial release of hyperlocal-with-windows, forked from hyperlocal. Added windows support.

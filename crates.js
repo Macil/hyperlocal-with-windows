@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["hyperlocal"];
+window.ALL_CRATES = ["hyperlocal_with_windows"];

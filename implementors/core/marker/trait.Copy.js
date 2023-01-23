@@ -1,3 +1,3 @@
-(function() {var implementors = {};
-implementors["hyperlocal"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.57.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"struct\" href=\"hyperlocal/struct.UnixConnector.html\" title=\"struct hyperlocal::UnixConnector\">UnixConnector</a>","synthetic":false,"types":["hyperlocal::client::UnixConnector"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
+(function() {var implementors = {
+"hyperlocal_with_windows":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.66.1/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"struct\" href=\"hyperlocal_with_windows/struct.UnixConnector.html\" title=\"struct hyperlocal_with_windows::UnixConnector\">UnixConnector</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

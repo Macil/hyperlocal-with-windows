@@ -5,15 +5,13 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Client, Response, Server,
 };
-use hyperlocal_with_windows::{UnixClientExt, UnixServerExt, Uri};
+use hyperlocal_with_windows::{remove_unix_socket_if_present, UnixClientExt, UnixServerExt, Uri};
 
 #[tokio::test]
 async fn test_server_client() -> Result<(), Box<dyn Error + Send + Sync>> {
     let path = Path::new("/tmp/hyperlocal.sock");
 
-    if path.exists() {
-        fs::remove_file(path)?;
-    }
+    remove_unix_socket_if_present(&path).await?;
 
     let make_service = make_service_fn(|_| async {
         Ok::<_, hyper::Error>(service_fn(|_req| async {

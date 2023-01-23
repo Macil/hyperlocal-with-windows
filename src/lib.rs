@@ -38,6 +38,11 @@ mod server;
 #[cfg(feature = "server")]
 pub use server::UnixServerExt;
 
+#[cfg(feature = "server")]
+mod server_helpers;
+#[cfg(feature = "server")]
+pub use server_helpers::remove_unix_socket_if_present;
+
 #[cfg(all(windows, any(feature = "client", feature = "server")))]
 mod windows;
 

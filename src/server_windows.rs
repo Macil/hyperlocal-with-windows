@@ -37,11 +37,15 @@ impl CommonUnixListener {
 ///
 /// ```rust
 /// use hyper::Response;
-/// use hyperlocal_with_windows::{remove_unix_socket_if_present, CommonUnixListener, UnixListenerExt};
+/// use hyperlocal_with_windows::{
+///     remove_unix_socket_if_present, CommonUnixListener, UnixListenerExt,
+/// };
 ///
 /// let future = async move {
 ///     let path = std::env::temp_dir().join("hyperlocal.sock");
-///     remove_unix_socket_if_present(&path).await.expect("removed any existing unix socket");
+///     remove_unix_socket_if_present(&path)
+///         .await
+///         .expect("removed any existing unix socket");
 ///     let listener = CommonUnixListener::bind(path).expect("parsed unix path");
 ///
 ///     listener

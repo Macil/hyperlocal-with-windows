@@ -92,19 +92,27 @@ impl UnixListenerExt for UnixListener {
         // and then close the socket. Currently we only close the socket once we
         // receive a connection after the SocketIncoming was dropped.
         std::thread::spawn(move || {
-            while let Ok((socket, _addr)) = self.accept() {
-                let tcp_stream = convert_unix_stream_to_nb_tcp_stream(socket);
-                // Give this TcpStream to Hyper.
-                if tx.blocking_send(tcp_stream).is_err() {
+            loop {
+                let result = self.accept();
+                let result_was_err = result.is_err();
+                if tx.blocking_send(result).is_err() {
                     // End if the receiver closed.
+                    break;
+                }
+                if result_was_err {
+                    // If there was an error, we should stop trying to accept
+                    // connections.
                     break;
                 }
             }
         });
 
         async move {
-            while let Some(stream) = rx.recv().await {
-                let stream = tokio::net::TcpStream::from_std(stream).unwrap();
+            while let Some(result) = rx.recv().await {
+                let (stream, _addr) = result?;
+                let stream =
+                    tokio::net::TcpStream::from_std(convert_unix_stream_to_nb_tcp_stream(stream))
+                        .unwrap();
 
                 let io = TokioIo::new(stream);
 

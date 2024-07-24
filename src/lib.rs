@@ -9,15 +9,7 @@
 //! `hyperlocal-with-windows` provides [Hyper](http://github.com/hyperium/hyper) bindings
 //! for [Unix domain sockets](https://github.com/tokio-rs/tokio/tree/master/tokio-net/src/uds/).
 //!
-//! See the [`UnixClientExt`] docs for
-//! how to configure clients.
-//!
-//! See the
-//! [`UnixServerExt`] docs for how to
-//! configure servers.
-//!
-//! The [`UnixConnector`] can be used in the [`hyper::Client`] builder
-//! interface, if required.
+//! See the examples for how to configure a client or a server.
 //!
 //! # Features
 //!
@@ -30,13 +22,13 @@
 #[cfg_attr(windows, path = "client_windows.rs")]
 mod client;
 #[cfg(feature = "client")]
-pub use client::{UnixClientExt, UnixConnector};
+pub use client::{UnixClientExt, UnixConnector, UnixStream};
 
 #[cfg(feature = "server")]
 #[cfg_attr(windows, path = "server_windows.rs")]
 mod server;
 #[cfg(feature = "server")]
-pub use server::UnixServerExt;
+pub use server::{CommonUnixListener, UnixListenerExt};
 
 #[cfg(feature = "server")]
 mod server_helpers;
@@ -47,7 +39,5 @@ pub use server_helpers::remove_unix_socket_if_present;
 mod windows;
 
 mod uri;
-pub use uri::Uri;
 
-#[cfg(feature = "server")]
-pub use crate::server::conn::SocketIncoming;
+pub use uri::Uri;

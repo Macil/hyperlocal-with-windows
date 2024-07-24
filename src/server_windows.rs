@@ -1,91 +1,32 @@
-use std::{io, path::Path};
+use hyper::{
+    body::{Body, Incoming},
+    service::service_fn,
+    Request, Response,
+};
+use hyper_util::rt::TokioIo;
+use std::{future::Future, io, path::Path};
+use uds_windows::UnixListener;
 
-use hyper::server::{Builder, Server};
+use crate::windows::convert_unix_stream_to_nb_tcp_stream;
 
-use conn::SocketIncoming;
+/// A cross-platform wrapper around a [`tokio::net::UnixListener`] or a Windows
+/// equivalent. Using this type allows code using Unix sockets to be written
+/// once and run on both Unix and Windows.
+///
+/// [`tokio::net::UnixListener`]:
+///     https://docs.rs/tokio/1.39.1/tokio/net/struct.UnixListener.html
+#[derive(Debug)]
+pub struct CommonUnixListener(UnixListener);
 
-pub(crate) mod conn {
-    use hyper::server::accept::Accept;
-    use pin_project_lite::pin_project;
-    use std::{
-        io,
-        path::Path,
-        pin::Pin,
-        task::{Context, Poll},
-        thread,
-    };
-    use tokio::sync::mpsc;
-    use uds_windows::UnixListener;
-
-    use crate::windows::convert_unix_stream_to_nb_tcp_stream;
-
-    pin_project! {
-        /// A stream of connections from binding to a socket.
-        #[derive(Debug)]
-        pub struct SocketIncoming {
-            rx: mpsc::Receiver<std::net::TcpStream>,
-        }
-    }
-
-    impl SocketIncoming {
-        /// Creates a new `SocketIncoming` binding to provided socket path.
-        ///
-        /// # Errors
-        /// Refer to [`tokio::net::Listener::bind`](https://docs.rs/tokio/1.15.0/tokio/net/struct.UnixListener.html#method.bind).
-        pub fn bind(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
-            let listener = UnixListener::bind(path)?;
-
-            Ok(Self::from_listener(listener))
-        }
-
-        /// Creates a new `SocketIncoming` from Tokio's `UnixListener`
-        ///
-        /// ```rust,ignore
-        /// let socket = SocketIncoming::from_listener(unix_listener);
-        /// let server = Server::builder(socket).serve(service);
-        /// ```
-        #[allow(clippy::must_use_candidate)]
-        pub fn from_listener(listener: UnixListener) -> Self {
-            let (tx, rx) = mpsc::channel(32);
-
-            // TODO We aren't fully handling closing the socket. Ideally when the
-            // SocketIncoming is dropped, we would abort the current accept()
-            // call and then close the socket. Currently we only close
-            // the socket once we receive a connection after the SocketIncoming was dropped.
-            thread::spawn(move || {
-                while let Ok((socket, _addr)) = listener.accept() {
-                    let tcp_stream = convert_unix_stream_to_nb_tcp_stream(socket);
-                    // Give this TcpStream to Hyper.
-                    if tx.blocking_send(tcp_stream).is_err() {
-                        // End if the receiver closed.
-                        break;
-                    }
-                }
-            });
-
-            Self { rx }
-        }
-    }
-
-    impl Accept for SocketIncoming {
-        type Conn = tokio::net::TcpStream;
-        type Error = io::Error;
-
-        fn poll_accept(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
-            self.project()
-                .rx
-                .poll_recv(cx)
-                .map(|t| t.map(tokio::net::TcpStream::from_std))
-        }
-    }
-
-    impl From<UnixListener> for SocketIncoming {
-        fn from(listener: UnixListener) -> Self {
-            Self::from_listener(listener)
-        }
+impl CommonUnixListener {
+    /// Open a Unix socket.
+    ///
+    /// # Errors
+    ///
+    /// This function will return any errors that occur while trying to open the
+    /// provided path.
+    pub fn bind(path: impl AsRef<Path>) -> io::Result<Self> {
+        UnixListener::bind(path).map(Self)
     }
 }
 
@@ -95,29 +36,105 @@ pub(crate) mod conn {
 /// # Example
 ///
 /// ```rust
-/// use hyper::{Server, Body, Response, service::{make_service_fn, service_fn}};
-/// use hyperlocal_with_windows::UnixServerExt;
+/// use hyper::Response;
+/// use hyperlocal_with_windows::{remove_unix_socket_if_present, CommonUnixListener, UnixListenerExt};
 ///
-/// # async {
-/// let make_service = make_service_fn(|_| async {
-///     Ok::<_, hyper::Error>(service_fn(|_req| async {
-///         Ok::<_, hyper::Error>(Response::new(Body::from("It works!")))
-///     }))
-/// });
+/// let future = async move {
+///     let path = std::env::temp_dir().join("hyperlocal.sock");
+///     remove_unix_socket_if_present(&path).await.expect("removed any existing unix socket");
+///     let listener = CommonUnixListener::bind(path).expect("parsed unix path");
 ///
-/// Server::bind_unix("/tmp/hyperlocal.sock")?.serve(make_service).await?;
-/// # Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
-/// # };
+///     listener
+///         .serve(|| {
+///             |_request| async {
+///                 Ok::<_, hyper::Error>(Response::new("Hello, world.".to_string()))
+///             }
+///         })
+///         .await
+///         .expect("failed to serve a connection")
+/// };
 /// ```
-pub trait UnixServerExt {
-    /// Convenience method for constructing a Server listening on a Unix socket.
-    #[allow(clippy::missing_errors_doc)]
-    fn bind_unix(path: impl AsRef<Path>) -> Result<Builder<SocketIncoming>, io::Error>;
+pub trait UnixListenerExt {
+    /// Indefinitely accept and respond to connections.
+    ///
+    /// Pass a function which will generate the function which responds to
+    /// all requests for an individual connection.
+    fn serve<MakeResponseFn, ResponseFn, ResponseFuture, B, E>(
+        self,
+        f: MakeResponseFn,
+    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+    where
+        MakeResponseFn: Fn() -> ResponseFn,
+        ResponseFn: Fn(Request<Incoming>) -> ResponseFuture,
+        ResponseFuture: Future<Output = Result<Response<B>, E>>,
+        B: Body + 'static,
+        <B as Body>::Error: std::error::Error + Send + Sync,
+        E: std::error::Error + Send + Sync + 'static;
 }
 
-impl UnixServerExt for Server<SocketIncoming, ()> {
-    fn bind_unix(path: impl AsRef<Path>) -> Result<Builder<SocketIncoming>, io::Error> {
-        let incoming = SocketIncoming::bind(path)?;
-        Ok(Server::builder(incoming))
+impl UnixListenerExt for UnixListener {
+    fn serve<MakeServiceFn, ResponseFn, ResponseFuture, B, E>(
+        self,
+        f: MakeServiceFn,
+    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+    where
+        MakeServiceFn: Fn() -> ResponseFn,
+        ResponseFn: Fn(Request<Incoming>) -> ResponseFuture,
+        ResponseFuture: Future<Output = Result<Response<B>, E>>,
+        B: Body + 'static,
+        <B as Body>::Error: std::error::Error + Send + Sync,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+
+        // TODO We aren't fully handling closing the socket. Ideally when the
+        // SocketIncoming is dropped, we would abort the current accept() call
+        // and then close the socket. Currently we only close the socket once we
+        // receive a connection after the SocketIncoming was dropped.
+        std::thread::spawn(move || {
+            while let Ok((socket, _addr)) = self.accept() {
+                let tcp_stream = convert_unix_stream_to_nb_tcp_stream(socket);
+                // Give this TcpStream to Hyper.
+                if tx.blocking_send(tcp_stream).is_err() {
+                    // End if the receiver closed.
+                    break;
+                }
+            }
+        });
+
+        async move {
+            while let Some(stream) = rx.recv().await {
+                let stream = tokio::net::TcpStream::from_std(stream).unwrap();
+
+                let io = TokioIo::new(stream);
+
+                let svc_fn = service_fn(f());
+
+                hyper::server::conn::http1::Builder::new()
+                    // On OSX, disabling keep alive prevents serve_connection from
+                    // blocking and later returning an Err derived from E_NOTCONN.
+                    .keep_alive(false)
+                    .serve_connection(io, svc_fn)
+                    .await?;
+            }
+            Err("UnixListener closed".into())
+        }
+    }
+}
+
+impl UnixListenerExt for CommonUnixListener {
+    fn serve<MakeServiceFn, ResponseFn, ResponseFuture, B, E>(
+        self,
+        f: MakeServiceFn,
+    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+    where
+        MakeServiceFn: Fn() -> ResponseFn,
+        ResponseFn: Fn(Request<Incoming>) -> ResponseFuture,
+        ResponseFuture: Future<Output = Result<Response<B>, E>>,
+        B: Body + 'static,
+        <B as Body>::Error: std::error::Error + Send + Sync,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        self.0.serve(f)
     }
 }

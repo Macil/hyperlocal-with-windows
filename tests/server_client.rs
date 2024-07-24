@@ -1,49 +1,47 @@
-use std::{error::Error, fs, path::Path};
+use http_body_util::{BodyExt, Full};
+use std::error::Error;
 
-use hyper::{
-    body::HttpBody,
-    service::{make_service_fn, service_fn},
-    Body, Client, Response, Server,
+use hyper::{body::Bytes, Response};
+use hyper_util::client::legacy::Client;
+use hyperlocal_with_windows::{
+    remove_unix_socket_if_present, CommonUnixListener, UnixClientExt, UnixConnector,
+    UnixListenerExt, Uri,
 };
-use hyperlocal_with_windows::{remove_unix_socket_if_present, UnixClientExt, UnixServerExt, Uri};
+
+const PHRASE: &str = "It works!";
 
 #[tokio::test]
 async fn test_server_client() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let path = Path::new("/tmp/hyperlocal.sock");
+    let path = std::env::temp_dir().join("hyperlocal.sock");
 
     remove_unix_socket_if_present(&path).await?;
 
-    let make_service = make_service_fn(|_| async {
-        Ok::<_, hyper::Error>(service_fn(|_req| async {
-            Ok::<_, hyper::Error>(Response::new(Body::from("It works!")))
-        }))
+    let listener = CommonUnixListener::bind(&path)?;
+
+    let _server_task = tokio::spawn(async move {
+        listener
+            .serve(|| |_req| async { Ok::<_, hyper::Error>(Response::new(PHRASE.to_string())) })
+            .await
     });
 
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
 
-    let server = Server::bind_unix("/tmp/hyperlocal.sock")?
-        .serve(make_service)
-        .with_graceful_shutdown(async { rx.await.unwrap() });
-
-    tokio::spawn(async move { server.await.unwrap() });
-
-    let client = Client::unix();
-
-    let url = Uri::new(path, "/").into();
+    let url = Uri::new(&path, "/").into();
 
     let mut response = client.get(url).await?;
     let mut bytes = Vec::default();
 
-    while let Some(next) = response.data().await {
-        let chunk = next?;
-        bytes.extend(chunk);
+    while let Some(frame_result) = response.frame().await {
+        let frame = frame_result?;
+
+        if let Some(segment) = frame.data_ref() {
+            bytes.extend(segment.iter().as_slice());
+        }
     }
 
     let string = String::from_utf8(bytes)?;
 
-    tx.send(()).unwrap();
-
-    assert_eq!(string, "It works!");
+    assert_eq!(PHRASE, string);
 
     Ok(())
 }
